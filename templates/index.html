@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animal Classifier & Translator</title>
+    <style>
+        /* Add your CSS styles here */
+        /* styles.css */
+        body {
+            margin: 0;
+            padding: 0;
+            background-image: url('static/nature1.jpg'); /* Path to your background image */
+            background-size: cover;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .animal-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            align-items: flex-start; /* Align from the top */
+        }
+        .animal {
+            margin: 10px;
+            text-align: center;
+        }
+        .animal img {
+            width: 200px; /* Fixed width */
+            height: 200px; /* Fixed height */
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .animal p {
+            font-weight: bold;
+            font-size: 14px;
+            text-align: center;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .predicted-name {
+            font-style: italic;
+            color: #888;
+        }
+
+        /* Popup styles */
+        .popup {
+            display: none;
+            position: fixed;
+            bottom: 20px; /* Adjust as needed */
+            right: 20px; /* Adjust as needed */
+            background-color: rgba(241, 241, 241, 0.8); /* Adjust transparency here */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.3);
+            z-index: 9999;
+        }
+
+        .popup-content {
+            max-width: 400px;
+        }
+
+        .popup h2 {
+            color: #3498db;
+        }
+
+        .popup textarea {
+            width: calc(100% - 20px); /* Adjust width */
+            padding: 5px; /* Decrease padding */
+            margin-bottom: 10px;
+            border: 1px solid rgba(204, 204, 204, 0.8); /* Adjust transparency here */
+            border-radius: 5px;
+            font-size: 14px; /* Decrease font size */
+        }
+
+        .popup select {
+            width: calc(100% - 20px); /* Adjust width */
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(204, 204, 204, 0.8); /* Adjust transparency here */
+            border-radius: 5px;
+            background-color: rgba(249, 249, 249, 0.8); /* Adjust transparency here */
+            font-size: 16px;
+            color: #333; /* Text color for dropdown options */
+        }
+
+        .popup input[type="button"],
+        .popup button {
+            display: inline-block; /* Show the button */
+            padding: 10px 20px;
+            background-color: rgba(52, 152, 219, 0.8); /* Adjust transparency here */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* Logo styles */
+        .logo {
+            position: fixed;
+            bottom: 20px; /* Adjust as needed */
+            right: 20px; /* Adjust as needed */
+            width: 50px; /* Adjust as needed */
+            height: 50px; /* Adjust as needed */
+            background-image: url('static/logo2.png'); /* Replace 'static/logo.jpg' with the path to your logo image */
+            background-size: cover;
+            cursor: pointer;
+        }
+
+        /* Translated text styles */
+        #translationResult {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #27ae60; /* Green color for translated text */
+            font-weight: bold;
+        }
+
+        /* Overlay styles */
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9998;
+        }
+
+        /* When overlay is active, show the popup */
+        .overlay.active + .popup {
+            display: block;
+        }
+    </style>
+
+</head>
+<body>
+    <div class="container">
+        <h1>Animal Classifier & Translator</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" accept="image/*" id="fileInput">
+            <button type="submit">Upload and Classify</button>
+        </form>
+        <div id="result" class="animal-container"></div>
+
+        <!-- Logo -->
+        <div class="logo" id="openPopupBtn"></div>
+
+        <!-- Popup -->
+        <div id="popup" class="popup">
+            <div class="popup-content">
+                <h2>Enter Text to Translate</h2>
+                <form id="translateForm">
+                    <textarea id="text" name="text" rows="2" cols="50"></textarea><br>
+                    <label for="target_language">Target Language:</label>
+                    <select id="target_language" name="target_language">
+                        <option value="en">English</option>
+                        <option value="hi">Hindi</option>
+                        <option value="bn">Bengali</option>
+                        <option value="te">Telugu</option>
+                        <option value="mr">Marathi</option>
+                        <option value="ta">Tamil</option>
+                        <option value="zh-Hans">Chinese</option>
+                        <option value="ar">Arabic</option>
+                        <option value="ru">Russian</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="de">German</option>
+                        <!-- Add more languages as needed -->
+                    </select><br>
+                    <input type="button" id="translateBtn" value="Translate">
+                    <button type="button" id="closePopupBtn">Close</button>
+                </form>
+                <div id="translationResult" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+
+        <!-- Overlay -->
+        <div id="overlay" class="overlay"></div>
+
+    </div>
+
+    <script>
+        // script.js
+        const form = document.getElementById('uploadForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch('/classify', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                displayResult(file, data.animal);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+
+        function displayResult(file, animal) {
+            const resultDiv = document.getElementById('result');
+
+            // Create container for uploaded image and predicted name
+            const animalContainer = document.createElement('div');
+            animalContainer.classList.add('animal');
+
+            // Display the uploaded image
+            const uploadedImage = document.createElement('img');
+            uploadedImage.src = URL.createObjectURL(file);
+            uploadedImage.alt = 'Uploaded Animal';
+            uploadedImage.style.width = '200px'; // Fixed width
+            uploadedImage.style.height = '200px'; // Fixed height
+            uploadedImage.style.border = '1px solid #ccc';
+            uploadedImage.style.borderRadius = '5px';
+            animalContainer.appendChild(uploadedImage);
+
+            // Display the predicted name
+            const animalName = document.createElement('p');
+            animalName.textContent = animal;
+            animalName.classList.add('predicted-name');
+            animalContainer.appendChild(animalName);
+
+            // Append the container to the result div
+            resultDiv.appendChild(animalContainer);
+        }
+
+        // Popup script
+        const openPopupBtn = document.getElementById('openPopupBtn');
+        const closePopupBtn = document.getElementById('closePopupBtn');
+        const popup = document.getElementById('popup');
+        const overlay = document.getElementById('overlay');
+        const translationResult = document.getElementById('translationResult');
+
+        openPopupBtn.addEventListener('click', () => {
+            popup.style.display = 'block';
+            overlay.style.display = 'block';
+        });
+
+        closePopupBtn.addEventListener('click', () => {
+            popup.style.display = 'none';
+            overlay.style.display = 'none';
+        });
+
+        overlay.addEventListener('click', () => {
+            popup.style.display = 'none';
+            overlay.style.display = 'none';
+        });
+
+        document.getElementById('translateBtn').addEventListener('click', () => {
+            const text = document.getElementById('text').value;
+            const targetLanguage = document.getElementById('target_language').value;
+            const url = '/translate';
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    text: text,
+                    target_language: targetLanguage
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                translationResult.innerHTML = result.translation;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+PIL
+flask==1.1.2
+azure.storage.blob==12.19.1
+os
+requests==2.28.1
+json
+torchvision==0.17.2
+uuid==1.30
+torch==2.2.2
+io
